@@ -62,21 +62,40 @@ class ShopliftingDetector:
             print(f"[ERROR] Failed to open video file: {self.input_path}")
             sys.exit(1)
         return cap
+    
+    # def _draw_human_box(self, frame: np.ndarray, x1: int, y1: int, w: int, h: int, conf: float) -> None:
+    #     # Define a standard color for any human detection
+    #     HUMAN_BOX_COLOR = (0, 255, 0)  # Green
+    #     CONF_COLOR = (255, 255, 0)     # Cyan
+
+    #     # Draw the rectangle for the human
+    #     cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), HUMAN_BOX_COLOR, 2)
+        
+    #     # Create and draw the confidence text
+    #     conf_text = f"Human: {conf:.2f}"
+    #     cv2.putText(frame, conf_text, (x1 + 10, y1 - 10), 
+    #                cv2.FONT_HERSHEY_SIMPLEX, 0.6, CONF_COLOR, 2)
+
 
     def _draw_detection(self, frame: np.ndarray, box_data: np.ndarray) -> str:
         xywh = np.array(box_data.boxes.xywh.cpu()).astype("int32")
         xyxy = np.array(box_data.boxes.xyxy.cpu()).astype("int32")
         cc_data = np.array(box_data.boxes.data.cpu())
-        status = start_status
+        status = "No Human Detected"
+        CONF_THRESHOLD = 0.5  # Set a confidence threshold to avoid weak detections
 
         for (x1, y1, _, _), (_, _, w, h), (_,_,_,_,conf,clas) in zip(xyxy, xywh, cc_data):
-            if clas == 1:  # Shoplifting detected
-                self._draw_shoplifting_box(frame, x1, y1, w, h, conf)
-                status = shoplifting_status
-            elif clas == 0 and conf > 0.8:  # Not shoplifting with high confidence
-                self._draw_normal_box(frame, x1, y1, w, h, conf)
-                status = not_shoplifting_status
-        
+            
+            # --- MODIFIED LOGIC ---
+            # Check if confidence is high enough
+            if conf >= CONF_THRESHOLD:
+                
+                # Check if the detected class is either 0 or 1 (both are humans)
+                if int(clas) in [0, 1]:
+                    # Call the unified function to draw a generic human box
+                    self._draw_human_box(frame, x1, y1, w, h, conf)
+                    status = "Human Detected"
+                    self.
         return status
 
     def _draw_shoplifting_box(self, frame: np.ndarray, x1: int, y1: int, 
@@ -165,7 +184,7 @@ def main():
     
     detector = ShopliftingDetector(
         weights_path="shoplifting_wights.pt",
-        input_path="demo3.mp4",
+        input_path="demo.mp4",
         output_path=output_video_path  # Provide the output path here
     )
     detector.process_video()
